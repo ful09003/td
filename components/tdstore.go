@@ -9,7 +9,7 @@ import (
 )
 
 type TDStoreInterface interface {
-	Set(item TDItem) error
+	Set(item TDItem) (string, error)
 	Get(key string) (TDItem, error)
 	Truncate() error
 	Dump() ([]TDItem, error)
@@ -26,15 +26,15 @@ type RAMTDStore struct {
 	I SafeTDStore
 }
 
-func (r *RAMTDStore) Set(item TDItem) error {
+func (r *RAMTDStore) Set(item TDItem) (string, error) {
 	r.I.Lock()
 	defer r.I.Unlock()
 
 	if _, ok := r.I.Items[item.Key]; !ok {
 		r.I.Items[item.Key] = item.URL
-		return nil
+		return "", nil
 	} else {
-		return errors.New("key already exists")
+		return "", errors.New("key already exists")
 	}
 }
 
@@ -86,19 +86,12 @@ type PGTDStore struct {
 	db *sql.DB
 }
 
-func (p *PGTDStore) Set(item TDItem) error {
-	if err := p.db.Ping(); err != nil {return err}
-
-	sqlStatement, err := p.db.Prepare(`INSERT INTO lard(k,u) VALUES ($1, $2) ON CONFLICT(u) DO NOTHING`)
-	defer sqlStatement.Close()
-
-	if err != nil {return err}
-
-	var res *sql.Row
-	err = sqlStatement.QueryRow(item.Key, item.URL).Scan(res)
-	if err != nil {return err}
-
-	return nil
+func (p *PGTDStore) Set(item TDItem) (string, error) {
+	if err := p.db.Ping(); err != nil {return "", err}
+	var retKey string
+	err := p.db.QueryRow(`INSERT INTO lard(k,u) VALUES ($1, $2) ON CONFLICT(u) DO UPDATE SET last_conflict=NOW() RETURNING k`, item.Key, item.URL).Scan(&retKey)
+	if err != nil {return "", err}
+	return retKey, nil
 }
 func (p *PGTDStore) Get(key string) (TDItem, error) {
 	rI := &TDItem{

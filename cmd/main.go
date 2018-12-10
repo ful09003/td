@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"database/sql"
 	"os"
+	"log"
+	"time"
 )
 
 const keySpace = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -18,23 +20,24 @@ var store components.TDStoreInterface
 func addTD(w http.ResponseWriter, r *http.Request) {
 	urlToSet := r.FormValue("url")
 	k := RandStringBytesRmndr(6)
-	e := store.Set(components.TDItem{
+	k1, e := store.Set(components.TDItem{
 		Key: k,
 		URL: urlToSet,
 	})
 	if e != nil {
 		if e == sql.ErrNoRows {
 			//Dup entry
+			log.Println("Dupliate request for URL: ", urlToSet)
 			w.WriteHeader(302)
-			fmt.Fprintln(w,"Returning something here")
+			fmt.Fprintln(w, k1)
 		} else {
-			fmt.Println(e)
+			log.Println(e)
 			w.WriteHeader(500)
 		}
 	} else {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintln(w, k)
+		fmt.Fprintln(w, k1)
 	}
 }
 
@@ -58,6 +61,10 @@ func redirTD(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
