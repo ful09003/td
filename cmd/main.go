@@ -69,9 +69,15 @@ func init() {
 
 func main() {
 	envs := getEnv()
-	connstring := envs["dsn"]
 	port := envs["port"]
-	store = components.GenerateNewPGTDS(connstring)
+	switch envs["back"] {
+	case "mem":
+		store = components.GenerateNewRAMTDS()
+	case "postgres":
+	default:
+		connstring := envs["dsn"]
+		store = components.GenerateNewPGTDS(connstring)
+	}
 	defer store.Close()
 
 	mux := mux.NewRouter()
@@ -103,9 +109,14 @@ func getEnv() map[string]string {
 	var r = map[string]string {
 		"dsn": "",
 		"port": "",
+		"back": "",
 	}
-	if r["dsn"] = os.Getenv("DSN"); r["dsn"] == "" {
-		panic("DSN required to run tinydi.cc")
+	if r["back"] = os.Getenv("BACKING_STORE"); r["back"] == "" {
+		log.Println("No BACKING_STORE env found. Consider setting to 'mem'. Defaulting to postgres")
+		r["back"] = "postgres"
+		if r["dsn"] = os.Getenv("DSN"); r["dsn"] == "" {
+			panic("DSN required to use a postgres backend.")
+		}
 	}
 
 	if r["port"] = os.Getenv("PORT"); r["port"] == "" {

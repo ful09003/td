@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"time"
+	"fmt"
 )
 
 type TDStoreInterface interface {
@@ -30,12 +31,15 @@ func (r *RAMTDStore) Set(item TDItem) (string, error) {
 	r.I.Lock()
 	defer r.I.Unlock()
 
-	if _, ok := r.I.Items[item.Key]; !ok {
-		r.I.Items[item.Key] = item.URL
-		return "", nil
-	} else {
-		return "", errors.New("key already exists")
+	for k, v := range r.I.Items {
+		if v == item.URL {
+			return k, sql.ErrNoRows
+		}
 	}
+
+	r.I.Items[item.Key] = item.URL
+	return item.Key, nil
+
 }
 
 func (r *RAMTDStore) Get(key string) (TDItem, error) {
@@ -45,7 +49,7 @@ func (r *RAMTDStore) Get(key string) (TDItem, error) {
 	if v, ok := r.I.Items[key]; ok {
 		return TDItem{URL:v, Key: key}, nil
 	} else {
-		return TDItem{}, nil
+		return TDItem{}, errors.New(fmt.Sprintf("key %s not found", key))
 	}
 }
 
