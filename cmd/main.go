@@ -70,16 +70,20 @@ func init() {
 func main() {
 	envs := getEnv()
 	port := envs["port"]
+
 	switch envs["back"] {
 	case "mem":
+		fmt.Println("Using in-memory store")
 		store = components.GenerateNewRAMTDS()
-		return
 	case "postgres":
-	default:
+		fmt.Println("Using Postgres store")
 		connstring := envs["dsn"]
 		store = components.GenerateNewPGTDS(connstring)
-		return
+	default:
+		fmt.Println("Defaulting to in-memory store")
+		store = components.GenerateNewRAMTDS()
 	}
+
 	defer store.Close()
 
 	mux := mux.NewRouter()
@@ -113,11 +117,15 @@ func getEnv() map[string]string {
 		"port": "",
 		"back": "",
 	}
+
 	if r["back"] = os.Getenv("BACKING_STORE"); r["back"] == "" {
-		log.Println("No BACKING_STORE env found. Consider setting to 'mem'. Defaulting to postgres")
-		r["back"] = "postgres"
+		fmt.Println("No BACKING_STORE env found. Defaulting to mem")
+		r["back"] = "mem"
+	}
+
+	if r["back"] == "postgres" {
 		if r["dsn"] = os.Getenv("DSN"); r["dsn"] == "" {
-			panic("DSN required to use a postgres backend.")
+			panic("DSN required to use a postgres backend")
 		}
 	}
 
