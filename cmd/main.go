@@ -73,10 +73,12 @@ func main() {
 	switch envs["back"] {
 	case "mem":
 		store = components.GenerateNewRAMTDS()
+		return
 	case "postgres":
 	default:
 		connstring := envs["dsn"]
 		store = components.GenerateNewPGTDS(connstring)
+		return
 	}
 	defer store.Close()
 
